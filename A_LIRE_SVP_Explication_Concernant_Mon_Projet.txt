@@ -1,0 +1,23 @@
+Objet : Explication concernant mes Pull Requests
+
+Bonjour Monsieur,
+
+Je souhaite vous expliquer ma situation concernant les Pull Requests.
+
+J'étais absent seulement lors de la présentation du Sprint 0 (je venais de terminer 
+l'évaluation du projet de forage et j'étais très fatigué). 
+Un camarade m'a expliqué le fonctionnement du projet, mais il ne m'a pas informé que 
+chaque sprint devait être remis sous forme de Pull Request avant la date limite.
+
+À chaque annonce d'un sprint, je réalisais le travail demandé, puis je créais une branche 
+dédiée (Sprint 1, Sprint 2, etc.).
+Avant chaque deadline, je faisais mes commits et je poussais cette branche sur GitHub, 
+car je pensais que c'était la procédure de remise. 
+L'historique de mon dépôt Git peut montrer que j'ai travaillé et publié chaque sprint au fur et à mesure.
+
+Ce n'est qu'au Sprint 5, lorsque vous avez rappelé l'obligation de passer par une PL,
+que j'ai compris mon erreur. J'ai alors réalisé que, malgré le travail effectué dans les délais, 
+je ne suivais pas la bonne procédure de remise.
+
+Je vous remercie sincèrement pour votre compréhension.
+

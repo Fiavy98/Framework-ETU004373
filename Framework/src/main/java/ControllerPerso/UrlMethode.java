@@ -3,14 +3,13 @@ package ControllerPerso;
 public class UrlMethode {
 
     private final String url;
-    private final String httpMethod; // "GET" ou "POST"
+    private final String httpMethod;
 
     public UrlMethode(String url, String httpMethod) {
         this.url = url;
         this.httpMethod = httpMethod.toUpperCase();
     }
 
-    // Obligatoire : permet à la Map de comparer deux clés
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
@@ -19,7 +18,6 @@ public class UrlMethode {
         return this.url.equals(other.url) && this.httpMethod.equals(other.httpMethod);
     }
 
-    // Obligatoire avec equals : pour que HashMap fonctionne correctement
     @Override
     public int hashCode() {
         return (url + ":" + httpMethod).hashCode();
