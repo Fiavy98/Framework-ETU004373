@@ -102,5 +102,9 @@ SPRINT 5: Comment envoyer les donner vers une vue
     │                    └─────────────────────────────┘  │
     └─────────────────────────────────────────────────────┘
     
-    Il faut conctaner le /eemp/list en /emp/list.jsp
-mp/list en /emp/list.jsp
+## Sprint 6 
+- meth action anaty controleur tsy makany @ vue fa mamerina JSON
+- cree notation 
+- framework 
+    - tester l'existance du notation 
+    -meht : retourner un objet -> invokey
