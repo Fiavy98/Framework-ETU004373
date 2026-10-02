@@ -108,3 +108,10 @@ SPRINT 5: Comment envoyer les donner vers une vue
 - framework 
     - tester l'existance du notation 
     -meht : retourner un objet -> invokey
+
+## Sprint 7
+- entrer un formulaire dans view
+- methode save(String nom,String prenom,int age)
+    -> nul 
+    -> search parametre dans view
+    -> invokey

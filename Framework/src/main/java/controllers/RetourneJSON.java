@@ -10,6 +10,6 @@ public class RetourneJSON {
     @Json
     @Mapping(value = "json", method = "GET")
     public Object json() {
-        return new Personne(1, "Tsinjo");
+        return new Personne(1, "Tsinjo",4373);
     }
 }
