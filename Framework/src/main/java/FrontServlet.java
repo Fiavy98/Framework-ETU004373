@@ -18,7 +18,6 @@ import ControllerPerso.MappingInfo;
 import ControllerPerso.ModelView;
 import ControllerPerso.UrlMethode;
 
-// ⭐ SPRINT 6 : import de la nouvelle annotation @Json
 import ControllerPerso.Json;
 
 
@@ -53,15 +52,9 @@ public class FrontServlet extends HttpServlet {
                                 method.getAnnotation(Mapping.class);
 
 
-                        UrlMethode cle =
-                                new UrlMethode(
-                                        ann.value(),
-                                        ann.method()
-                                );
+                        UrlMethode cle = new UrlMethode(ann.value(),ann.method());
 
-                        mappingUrls.put(
-                                cle,
-                                new MappingInfo(
+                        mappingUrls.put(cle,new MappingInfo(
                                         className,
                                         method
                                 )
@@ -109,7 +102,6 @@ public class FrontServlet extends HttpServlet {
     }
 
 
-// Traiter le requette
 private void traiter(
         HttpServletRequest request,
         HttpServletResponse response,
@@ -123,135 +115,64 @@ private void traiter(
             ? pathInfo.substring(1)
             : "";
 
+    String requestUrl = request.getRequestURL().toString();
 
-    // ========================================================
-    // CONSTRUIRE L'URL DE BASE
-    // ========================================================
+    String contextPath = request.getContextPath();
 
-    String requestUrl =
-            request.getRequestURL().toString();
-
-    String contextPath =
-            request.getContextPath();
-
-    String baseUrl =
-            requestUrl.substring(
-                    0,
-                    requestUrl.indexOf(contextPath)
-                            + contextPath.length()
+    String baseUrl =requestUrl.substring(0,
+                requestUrl.indexOf(contextPath)
+                + contextPath.length()
             )
             + "/";
 
+    UrlMethode cle = new UrlMethode(urlDemandee,httpMethod);
 
-    // ========================================================
-    // CHERCHER LE MAPPING
-    // ========================================================
-
-    UrlMethode cle =
-            new UrlMethode(
-                    urlDemandee,
-                    httpMethod
-            );
-
-
-    //  Cas Json
     if (mappingUrls.containsKey(cle)) {
 
-        MappingInfo info =
-                mappingUrls.get(cle);
+        MappingInfo info = mappingUrls.get(cle);
 
-        // Verifier Json
         if (info.getMethod().isAnnotationPresent(Json.class)) {
-
             response.setContentType(
                     "application/json; charset=UTF-8"
             );
 
-            executerMethode(
-                    info,
-                    request,
-                    response
-            );
 
-            // ⭐ Très important :
-            // on arrête ici pour ne pas ajouter du HTML.
+            executerMethode(info,request,response);
+
             return;
         }
     }
 
-
-    // ========================================================
     // RÉPONSE HTML NORMALE
-    // ========================================================
+    response.setContentType( "text/html; charset=UTF-8" );
 
-    response.setContentType(
-            "text/html; charset=UTF-8"
-    );
+    PrintWriter out = response.getWriter();
 
-    PrintWriter out =
-            response.getWriter();
-
-
-    // ========================================================
     // PAGE HTML
-    // ========================================================
-
     out.println(
             "<html><body "
             + "style='font-family: Arial; margin: 30px;'>"
     );
 
-
-    // ========================================================
     // CAS 1 : URL VIDE
-    // ========================================================
 
     if (urlDemandee.isEmpty()) {
+        afficherTableau(out,baseUrl,null);
 
-        afficherTableau(
-                out,
-                baseUrl,
-                null
-        );
-
-
-    // ========================================================
     // CAS 2 : URL EXISTANTE
-    // ========================================================
-
     } else if (mappingUrls.containsKey(cle)) {
 
-        MappingInfo info =
-                mappingUrls.get(cle);
+        MappingInfo info = mappingUrls.get(cle);
+        executerMethode(info,request,response);
 
-        executerMethode(
-                info,
-                request,
-                response
-        );
-
-
-    // ========================================================
     // CAS 3 : URL INEXISTANTE
-    // ========================================================
-
     } else {
 
-        afficherErreur(
-                out,
-                baseUrl,
-                urlDemandee,
-                httpMethod
-        );
+        afficherErreur(out,baseUrl,urlDemandee,httpMethod);
     }
 
-
-    // ========================================================
     // LIEN RETOUR
-    // ========================================================
-
     out.println("<br><hr>");
-
     out.println(
             "<p><a href='"
             + baseUrl
@@ -261,30 +182,20 @@ private void traiter(
     out.println("</body></html>");
 }
 
-    // ============================================================
-    // AFFICHER LE TABLEAU DES MAPPINGS
-    // ============================================================
-
+    // AFFICHER LE TABLEAU DES MAPPINGS====
     private void afficherTableau(
             PrintWriter out,
             String baseUrl,
             String urlActive) {
 
-
         out.println("<h2>Tableau des Mappings</h2>");
-
 
         out.println(
                 "<table border='1' cellpadding='10' "
                 + "style='border-collapse:collapse;'>"
         );
 
-
-        out.println(
-                "<tr style='background:#f2f2f2'>"
-        );
-
-
+        out.println("<tr style='background:#f2f2f2'>");
         out.println(
                 "<th>URL</th>"
                 + "<th>HTTP</th>"
@@ -292,21 +203,11 @@ private void traiter(
                 + "<th>Méthode</th>"
         );
 
-
         out.println("</tr>");
 
-
         // Parcourir tous les mappings
-        for (
-                Map.Entry<UrlMethode, MappingInfo> entry
-                : mappingUrls.entrySet()
-        ) {
-
-
-            String urlComplete =
-                    baseUrl
-                    + entry.getKey().getUrl();
-
+        for (Map.Entry<UrlMethode, MappingInfo> entry : mappingUrls.entrySet()) {
+            String urlComplete = baseUrl + entry.getKey().getUrl();
 
             // Savoir si cette URL est active
             String style =
@@ -319,12 +220,7 @@ private void traiter(
                     :
                     "";
 
-
-            out.println(
-                    "<tr " + style + ">"
-            );
-
-
+            out.println("<tr " + style + ">");
             out.println(
                     "<td><a href='"
                     + urlComplete
@@ -333,20 +229,17 @@ private void traiter(
                     + "</a></td>"
             );
 
-
             out.println(
                     "<td>"
                     + entry.getKey().getHttpMethod()
                     + "</td>"
             );
 
-
             out.println(
                     "<td>"
                     + entry.getValue().getClassName()
                     + "</td>"
             );
-
 
             out.println(
                     "<td>"
@@ -356,86 +249,36 @@ private void traiter(
                     + "()</td>"
             );
 
-
             out.println("</tr>");
         }
-
 
         out.println("</table>");
     }
 
-
-//     Execute le metho du controlleur
-
-    private void executerMethode(
-            MappingInfo info,
-            HttpServletRequest request,
-            HttpServletResponse response)
-            throws ServletException, IOException {
-
+   //  Execute meth du controlleur
+    private void executerMethode( MappingInfo info,HttpServletRequest request, HttpServletResponse response)
+        throws ServletException, IOException {
 
         try {
-                // Charger la classe
+            ClassLoader cl = Thread.currentThread().getContextClassLoader();
+            Class<?> clazz = cl.loadClass(info.getClassName());
+            Object instance = clazz.getDeclaredConstructor().newInstance();
+            Object result = info.getMethod().invoke(instance);
 
-            ClassLoader cl =
-                    Thread.currentThread()
-                            .getContextClassLoader();
-
-
-            Class<?> clazz =
-                    cl.loadClass(
-                            info.getClassName()
-                    );
-
-
-        // Cree un instanse du controlleur
-            Object instance =
-                    clazz.getDeclaredConstructor()
-                            .newInstance();
-
-
-        // Execute la methode avec invoke()
-        // result contient l'objet du classe Controlleur
-            Object result =
-                    info.getMethod().invoke(instance);
-
-
-
-                // Verifier si la methode contient un annotation JSON
-            if (
-                    info.getMethod()
-                            .isAnnotationPresent(Json.class)
-            ) {
-
-
-                // Reponse JSON
-                response.setContentType(
-                        "application/json; charset=UTF-8"
-                );
-
+            if (info.getMethod().isAnnotationPresent(Json.class)) {
+                response.setContentType("application/json; charset=UTF-8");
 
                 // Récupérer le Writer
-                PrintWriter out =
-                        response.getWriter();
+                PrintWriter out = response.getWriter();
 
-
-                // OBJET JAVA → JSON
-
-
-                out.println(
-                        toJson(result)
-                );
+                out.println(toJson(result));
 
                 return;
             }
 
-        // =========================================================
             if (result instanceof ModelView) {
-
-
                 ModelView mv =
                         (ModelView) result;
-
 
                 // Mettre les données dans la requête
                 for (
@@ -448,7 +291,6 @@ private void traiter(
                             entry.getValue()
                     );
                 }
-
 
                 // Construire le chemin JSP
                 String jspPath =
@@ -470,19 +312,15 @@ private void traiter(
 
 
                 // =================================================
-                // ANCIEN COMPORTEMENT POUR LES AUTRES MÉTHODES
+                //  COMPORTEMENT POUR LES AUTRES MÉTHODES
                 // =================================================
 
-                PrintWriter out =
-                        response.getWriter();
-
-
+                PrintWriter out = response.getWriter();
                 out.println(
                         "<p>Méthode <strong>"
                         + info.getMethod().getName()
                         + "()</strong> exécutée.</p>"
                 );
-
 
                 out.println(
                         "<p>Voir la console Tomcat "
@@ -492,7 +330,6 @@ private void traiter(
 
 
         } catch (Exception e) {
-
             throw new ServletException(
                     "Erreur exécution méthode",
                     e
@@ -500,102 +337,77 @@ private void traiter(
         }
     }
 
-
 // Transformet Java en JSON
+private String toJson(Object objet) {
 
-    private String toJson(Object objet) {
-
-
-        StringBuilder json =
-                new StringBuilder();
-
-
-        json.append("{");
-
-
-        // Récupérer toutes les méthodes publiques
-        Method[] methods =
-                objet.getClass().getMethods();
-
+    // CAS 1 : c'est une liste
+    if (objet instanceof List) {
+        List<?> liste = (List<?>) objet;
+        StringBuilder json = new StringBuilder();
+        json.append("[");
 
         boolean premier = true;
 
-
-        // Parcourir les méthodes
-        for (Method method : methods) {
-
-
-            String nom =
-                    method.getName();
-
-            if (
-                    nom.startsWith("get")
-                    && !nom.equals("getClass")
-            ) {
-
-
-                try {
-
-
-                    // Exécuter le getter
-                    Object valeur =
-                            method.invoke(objet);
-
-
-                    String nomAttribut =
-                            Character.toLowerCase(
-                                    nom.charAt(3)
-                            )
-                            + nom.substring(4);
-
-
-                    // Ajouter une virgule
-                    // entre les attributs
-                    if (!premier) {
-                        json.append(",");
-                    }
-
-
-                    // Nom de l'attribut
-                    json.append("\"")
-                        .append(nomAttribut)
-                        .append("\":");
-
-
-                    if (valeur instanceof String) {
-
-                        json.append("\"")
-                            .append(valeur)
-                            .append("\"");
-
-                       } else {
-
-                        json.append(valeur);
-                    }
-
-
-                    premier = false;
-
-
-                } catch (Exception e) {
-
-                    throw new RuntimeException(e);
-                }
+        for (Object element : liste) {
+            if (!premier) {
+                json.append(",");
             }
+            json.append(toJson(element));
+
+            premier = false;
         }
 
-
-        json.append("}");
-
+        json.append("]");
 
         return json.toString();
     }
 
+    // CAS 2 : objet simple
+    StringBuilder json = new StringBuilder();
+    json.append("{");
 
-    // ============================================================
-    // AFFICHER ERREUR URL
-    // ============================================================
+    Method[] methods = objet.getClass().getMethods();
+    boolean premier = true;
 
+    for (Method method : methods) {
+        String nom = method.getName();
+        if (nom.startsWith("get") && !nom.equals("getClass")) {
+            try {
+                Object valeur = method.invoke(objet);
+                String nomAttribut =
+                    Character.toLowerCase(nom.charAt(3))
+                    + nom.substring(4);
+
+                if (!premier) {
+                    json.append(",");
+                }
+
+                json.append("\"")
+                    .append(nomAttribut)
+                    .append("\":");
+
+                if (valeur instanceof String) {
+                    json.append("\"")
+                        .append(valeur)
+                        .append("\"");
+
+                } else {
+                    json.append(valeur);
+                }
+
+                premier = false;
+
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
+    }
+
+    json.append("}");
+    return json.toString();
+}
+
+    // AFFICHER ERREUR URL====
     private void afficherErreur(
             PrintWriter out,
             String baseUrl,
@@ -609,13 +421,11 @@ private void traiter(
                 + "</h2>"
         );
 
-
         out.println(
                 "<div style='background:#ffebee; "
                 + "padding:15px; "
                 + "border-left:5px solid #c62828;'>"
         );
-
 
         out.println(
                 "L'URL <strong>"
@@ -626,26 +436,14 @@ private void traiter(
                 + "] n'existe pas."
         );
 
-
         out.println("</div>");
-
-
         out.println(
                 "<p>URLs valides :</p><ul>"
         );
 
-
         // Afficher toutes les URLs connues
-        for (
-                UrlMethode u
-                : mappingUrls.keySet()
-        ) {
-
-
-            String urlComplete =
-                    baseUrl + u.getUrl();
-
-
+        for (UrlMethode u : mappingUrls.keySet()) {
+            String urlComplete = baseUrl + u.getUrl();
             out.println(
                     "<li>["
                     + u.getHttpMethod()
@@ -657,8 +455,6 @@ private void traiter(
                     + "</a></li>"
             );
         }
-
-
         out.println("</ul>");
     }
 }
