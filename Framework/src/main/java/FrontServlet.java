@@ -7,11 +7,13 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.lang.reflect.Method;
+import java.lang.reflect.Parameter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import ControllerPerso.ControllerScanner;
+import ControllerPerso.GetParameter;
 import ControllerPerso.Mapping;
 import ControllerPerso.MappingInfo;
 import ControllerPerso.ModelView;
@@ -138,8 +140,8 @@ public class FrontServlet extends HttpServlet {
 
             Object instance = clazz.getDeclaredConstructor().newInstance();
 
-            Object result = info.getMethod().invoke(instance);
- 
+            Object result = invokeMethod(info.getMethod(), instance, request, response);
+
             if (result instanceof ModelView) {
                 ModelView mv = (ModelView) result;
 
@@ -163,7 +165,84 @@ public class FrontServlet extends HttpServlet {
         }
     }
 
-    //  URL inconnue -> message + liste des URLs valides    
+    private Object invokeMethod(Method method, Object instance,
+                               HttpServletRequest request,
+                               HttpServletResponse response) throws Exception {
+        if (method.getParameterCount() == 0) {
+            return method.invoke(instance);
+        }
+
+        Object[] args = new Object[method.getParameterCount()];
+        Parameter[] parameters = method.getParameters();
+
+        for (int i = 0; i < parameters.length; i++) {
+            Parameter parameter = parameters[i];
+            Class<?> type = parameter.getType();
+
+            if (type == HttpServletRequest.class) {
+                args[i] = request;
+                continue;
+            }
+
+            if (type == HttpServletResponse.class) {
+                args[i] = response;
+                continue;
+            }
+
+            if (parameter.isAnnotationPresent(GetParameter.class)) {
+                GetParameter annotation = parameter.getAnnotation(GetParameter.class);
+                String parameterName = annotation.value();
+                if (parameterName == null || parameterName.isEmpty()) {
+                    parameterName = parameter.getName();
+                }
+
+                String value = request.getParameter(parameterName);
+                args[i] = convertParameterValue(type, value);
+                continue;
+            }
+
+            args[i] = null;
+        }
+
+        return method.invoke(instance, args);
+    }
+
+    private Object convertParameterValue(Class<?> type, String value) {
+        if (value == null) {
+            if (type == boolean.class) return false;
+            if (type == Boolean.class) return Boolean.FALSE;
+            if (type == int.class) return 0;
+            if (type == Integer.class) return Integer.valueOf(0);
+            if (type == long.class) return 0L;
+            if (type == Long.class) return Long.valueOf(0L);
+            if (type == double.class) return 0.0d;
+            if (type == Double.class) return Double.valueOf(0.0d);
+            return null;
+        }
+
+        if (type == String.class) {
+            return value;
+        }
+        if (type == int.class || type == Integer.class) {
+            return Integer.parseInt(value);
+        }
+        if (type == long.class || type == Long.class) {
+            return Long.parseLong(value);
+        }
+        if (type == double.class || type == Double.class) {
+            return Double.parseDouble(value);
+        }
+        if (type == float.class || type == Float.class) {
+            return Float.parseFloat(value);
+        }
+        if (type == boolean.class || type == Boolean.class) {
+            return Boolean.parseBoolean(value);
+        }
+
+        return value;
+    }
+
+    //  URL inconnue -> message + liste des URLs valides
     private void afficherErreur(PrintWriter out, String baseUrl,
                                  String urlDemandee, String httpMethod) {
         out.println("<h2 style='color:#c62828;'>URL Inconnue</h2>");
