@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.lang.reflect.Method;
+import java.lang.reflect.Parameter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -135,10 +136,11 @@ public class FrontServlet extends HttpServlet {
             ClassLoader cl = Thread.currentThread().getContextClassLoader();
 
             Class<?> clazz = cl.loadClass(info.getClassName());
-
             Object instance = clazz.getDeclaredConstructor().newInstance();
+            Method method = info.getMethod();
+            Object[] arguments = construireArguments(method, request);
 
-            Object result = info.getMethod().invoke(instance);
+            Object result = method.invoke(instance, arguments);
  
             if (result instanceof ModelView) {
                 ModelView mv = (ModelView) result;
@@ -154,13 +156,81 @@ public class FrontServlet extends HttpServlet {
             } else {
                 PrintWriter out = response.getWriter();
                 out.println("<p>Méthode <strong>"
-                        + info.getMethod().getName() + "()</strong> exécutée.</p>");
+                        + method.getName() + "()</strong> exécutée.</p>");
                 out.println("<p>Voir la console Tomcat pour le résultat.</p>");
             }
 
         } catch (Exception e) {
             throw new ServletException("Erreur exécution méthode", e);
         }
+    }
+
+    private Object[] construireArguments(Method method, HttpServletRequest request) {
+        Parameter[] params = method.getParameters();
+        Object[] arguments = new Object[params.length];
+
+        for (int i = 0; i < params.length; i++) {
+            Parameter parameter = params[i];
+            String paramName = parameter.getName();
+            String rawValue = request.getParameter(paramName);
+
+            if (rawValue == null) {
+                arguments[i] = valeurParDefaut(parameter.getType());
+                continue;
+            }
+
+            arguments[i] = convertirValeur(rawValue, parameter.getType());
+        }
+
+        return arguments;
+    }
+
+    private Object valeurParDefaut(Class<?> type) {
+        if (type == boolean.class) return false;
+        if (type == byte.class) return (byte) 0;
+        if (type == short.class) return (short) 0;
+        if (type == int.class) return 0;
+        if (type == long.class) return 0L;
+        if (type == float.class) return 0.0f;
+        if (type == double.class) return 0.0d;
+        if (type == char.class) return '\0';
+        return null;
+    }
+
+    private Object convertirValeur(String rawValue, Class<?> type) {
+        if (type == String.class) {
+            return rawValue;
+        }
+        if (type == Integer.class || type == int.class) {
+            return Integer.valueOf(rawValue);
+        }
+        if (type == Long.class || type == long.class) {
+            return Long.valueOf(rawValue);
+        }
+        if (type == Double.class || type == double.class) {
+            return Double.valueOf(rawValue);
+        }
+        if (type == Float.class || type == float.class) {
+            return Float.valueOf(rawValue);
+        }
+        if (type == Boolean.class || type == boolean.class) {
+            return Boolean.valueOf(rawValue);
+        }
+        if (type == Short.class || type == short.class) {
+            return Short.valueOf(rawValue);
+        }
+        if (type == Byte.class || type == byte.class) {
+            return Byte.valueOf(rawValue);
+        }
+        if (type == Character.class || type == char.class) {
+            if (rawValue == null || rawValue.isEmpty()) {
+                return '\0';
+            }
+            return rawValue.charAt(0);
+        }
+
+        throw new IllegalArgumentException(
+                "Type de paramètre non supporté : " + type.getName() + " pour la valeur '" + rawValue + "'");
     }
 
     //  URL inconnue -> message + liste des URLs valides    
