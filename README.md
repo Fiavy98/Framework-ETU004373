@@ -104,3 +104,6 @@ SPRINT 5: Comment envoyer les donner vers une vue
     
     Il faut conctaner le /eemp/list en /emp/list.jsp
 mp/list en /emp/list.jsp
+
+## SPRINT 7
+- vue formulaire -> controlleur
