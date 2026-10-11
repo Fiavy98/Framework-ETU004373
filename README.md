@@ -104,3 +104,7 @@ SPRINT 5: Comment envoyer les donner vers une vue
     
     Il faut conctaner le /eemp/list en /emp/list.jsp
 mp/list en /emp/list.jsp
+
+## Sprint 7bis
+- banding 
+    - récupère automatiquement les valeurs du formulaire HTML et les transmette aux paramètres de la méthode.
