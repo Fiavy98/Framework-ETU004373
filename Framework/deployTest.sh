@@ -14,7 +14,7 @@ mkdir -p "$BUILD_DIR/classes"
 
 # ── Compilation ───────────────────────────────────
 find "$SRC_DIR" -name "*.java" > sources.txt
-javac -cp "$SERVLET_API_JAR" -d "$BUILD_DIR/classes" @sources.txt
+javac -parameters -cp "$SERVLET_API_JAR" -d "$BUILD_DIR/classes" @sources.txt
 rm sources.txt
 
 if [ $? -ne 0 ]; then
