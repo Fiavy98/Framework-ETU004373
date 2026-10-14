@@ -108,3 +108,21 @@ mp/list en /emp/list.jsp
 ## Sprint 7bis
 - banding 
     - récupère automatiquement les valeurs du formulaire HTML et les transmette aux paramètres de la méthode.
+
+## Sprint 8
+upload img 
+ <!-- map<cle,valeur> -->
+
+Class mapFile 
+    nom name 
+    extension (type)
+    tableau byts 
+
+Class Personne
+string nom
+int age 
+mapFile rectoCIN
+
+- controleur 
+    - voir s'il y a mapFile
+

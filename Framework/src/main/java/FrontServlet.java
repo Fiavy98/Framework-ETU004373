@@ -69,18 +69,19 @@ public class FrontServlet extends HttpServlet {
 
     // traiter() : lire l'URL demandée et décider quoi faire
     private void traiter(HttpServletRequest request, HttpServletResponse response,
-                         String httpMethod) throws ServletException, IOException { 
+            String httpMethod) throws ServletException, IOException {
 
         response.setContentType("text/html; charset=UTF-8");
         PrintWriter out = response.getWriter();
 
         String pathInfo = request.getPathInfo();
         String urlDemandee = (pathInfo != null && pathInfo.length() > 1)
-                ? pathInfo.substring(1) : "";
+                ? pathInfo.substring(1)
+                : "";
 
-        String requestUrl  = request.getRequestURL().toString();
+        String requestUrl = request.getRequestURL().toString();
         String contextPath = request.getContextPath();
-        String baseUrl     = requestUrl.substring(0,
+        String baseUrl = requestUrl.substring(0,
                 requestUrl.indexOf(contextPath) + contextPath.length()) + "/";
 
         out.println("<html><body style='font-family: Arial; margin: 30px;'>");
@@ -97,7 +98,7 @@ public class FrontServlet extends HttpServlet {
             executerMethode(info, request, response);
 
         } else {
-           
+
             afficherErreur(out, baseUrl, urlDemandee, httpMethod);
         }
 
@@ -117,7 +118,8 @@ public class FrontServlet extends HttpServlet {
             String urlComplete = baseUrl + entry.getKey().getUrl();
 
             String style = entry.getKey().getUrl().equals(urlActive)
-                    ? "style='background:#e8f5e9; font-weight:bold;'" : "";
+                    ? "style='background:#e8f5e9; font-weight:bold;'"
+                    : "";
 
             out.println("<tr " + style + ">");
             out.println("  <td><a href='" + urlComplete + "'>" + urlComplete + "</a></td>");
@@ -130,8 +132,8 @@ public class FrontServlet extends HttpServlet {
     }
 
     private void executerMethode(MappingInfo info, HttpServletRequest request,
-                                  HttpServletResponse response)
-                                  throws ServletException, IOException {
+            HttpServletResponse response)
+            throws ServletException, IOException {
         try {
             ClassLoader cl = Thread.currentThread().getContextClassLoader();
 
@@ -141,7 +143,7 @@ public class FrontServlet extends HttpServlet {
             Object[] arguments = construireArguments(method, request);
 
             Object result = method.invoke(instance, arguments);
- 
+
             if (result instanceof ModelView) {
                 ModelView mv = (ModelView) result;
 
@@ -186,14 +188,22 @@ public class FrontServlet extends HttpServlet {
     }
 
     private Object valeurParDefaut(Class<?> type) {
-        if (type == boolean.class) return false;
-        if (type == byte.class) return (byte) 0;
-        if (type == short.class) return (short) 0;
-        if (type == int.class) return 0;
-        if (type == long.class) return 0L;
-        if (type == float.class) return 0.0f;
-        if (type == double.class) return 0.0d;
-        if (type == char.class) return '\0';
+        if (type == boolean.class)
+            return false;
+        if (type == byte.class)
+            return (byte) 0;
+        if (type == short.class)
+            return (short) 0;
+        if (type == int.class)
+            return 0;
+        if (type == long.class)
+            return 0L;
+        if (type == float.class)
+            return 0.0f;
+        if (type == double.class)
+            return 0.0d;
+        if (type == char.class)
+            return '\0';
         return null;
     }
 
@@ -233,9 +243,9 @@ public class FrontServlet extends HttpServlet {
                 "Type de paramètre non supporté : " + type.getName() + " pour la valeur '" + rawValue + "'");
     }
 
-    //  URL inconnue -> message + liste des URLs valides    
+    // URL inconnue -> message + liste des URLs valides
     private void afficherErreur(PrintWriter out, String baseUrl,
-                                 String urlDemandee, String httpMethod) {
+            String urlDemandee, String httpMethod) {
         out.println("<h2 style='color:#c62828;'>URL Inconnue</h2>");
         out.println("<div style='background:#ffebee; padding:15px; border-left:5px solid #c62828;'>");
         out.println("L'URL <strong>" + baseUrl + urlDemandee
