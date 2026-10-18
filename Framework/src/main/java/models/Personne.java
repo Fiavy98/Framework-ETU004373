@@ -5,6 +5,7 @@ public class Personne {
     private String prenom;
     private String genre;
     private String tel;
+    private MappFile rectoCIN;
 
     public Personne() {
     }
@@ -14,6 +15,14 @@ public class Personne {
         this.prenom = prenom;
         this.genre = genre;
         this.tel = tel;
+    }
+
+    public Personne(String nom, String prenom, String genre, String tel, MappFile rectoCIN) {
+        this.nom = nom;
+        this.prenom = prenom;
+        this.genre = genre;
+        this.tel = tel;
+        this.rectoCIN = rectoCIN;
     }
 
     public String getNom() {
@@ -46,5 +55,13 @@ public class Personne {
 
     public void setTel(String tel) {
         this.tel = tel;
+    }
+
+    public MappFile getRectoCIN() {
+        return rectoCIN;
+    }
+
+    public void setRectoCIN(MappFile rectoCIN) {
+        this.rectoCIN = rectoCIN;
     }
 }

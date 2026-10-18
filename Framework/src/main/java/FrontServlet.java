@@ -1,24 +1,44 @@
 package main.java;
 
 import jakarta.servlet.ServletException;
+import jakarta.servlet.annotation.MultipartConfig;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.Part;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.PrintWriter;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import ControllerPerso.ControllerScanner;
 import ControllerPerso.Mapping;
 import ControllerPerso.MappingInfo;
 import ControllerPerso.ModelView;
 import ControllerPerso.UrlMethode;
+import models.MappFile;
 
+@MultipartConfig(
+        fileSizeThreshold = 1024 * 1024,
+        maxFileSize = 2 * 1024 * 1024,
+        maxRequestSize = 3 * 1024 * 1024
+)
 public class FrontServlet extends HttpServlet {
+
+    private static final long MAX_UPLOAD_SIZE = 2L * 1024L * 1024L;
+    private static final Set<String> ALLOWED_EXTENSIONS = new HashSet<>(Arrays.asList("jpg", "jpeg", "png", "pdf"));
+    private static final Set<String> ALLOWED_CONTENT_TYPES = new HashSet<>(Arrays.asList(
+            "image/jpeg",
+            "image/png",
+            "application/pdf"
+    ));
 
     private Map<UrlMethode, MappingInfo> mappingUrls = new HashMap<>();
 
@@ -158,10 +178,12 @@ public class FrontServlet extends HttpServlet {
             } else {
                 PrintWriter out = response.getWriter();
                 out.println("<p>Méthode <strong>"
-                        + method.getName() + "()</strong> exécutée.</p>");
-                out.println("<p>Voir la console Tomcat pour le résultat.</p>");
+                        + method.getName() + "()</strong> executee.</p>");
+                out.println("<p>Voir la console Tomcat pour le resultat.</p>");
             }
 
+        } catch (IllegalArgumentException e) {
+            response.sendError(HttpServletResponse.SC_BAD_REQUEST, e.getMessage());
         } catch (Exception e) {
             throw new ServletException("Erreur exécution méthode", e);
         }
@@ -174,6 +196,12 @@ public class FrontServlet extends HttpServlet {
         for (int i = 0; i < params.length; i++) {
             Parameter parameter = params[i];
             String paramName = parameter.getName();
+
+            if (parameter.getType() == MappFile.class) {
+                arguments[i] = construireFichier(request, paramName);
+                continue;
+            }
+
             String rawValue = request.getParameter(paramName);
 
             if (rawValue == null) {
@@ -185,6 +213,69 @@ public class FrontServlet extends HttpServlet {
         }
 
         return arguments;
+    }
+
+    private MappFile construireFichier(HttpServletRequest request, String paramName) {
+        try {
+            Part part = request.getPart(paramName);
+
+            if (part == null || part.getSize() == 0L) {
+                return null;
+            }
+
+            if (part.getSize() > MAX_UPLOAD_SIZE) {
+                throw new IllegalArgumentException(
+                        "Le fichier " + paramName + " dépasse la taille maximale autorisée de 2 Mo.");
+            }
+
+            String submittedFileName = part.getSubmittedFileName();
+            if (submittedFileName == null || submittedFileName.trim().isEmpty()) {
+                throw new IllegalArgumentException("Le fichier " + paramName + " est invalide ou vide.");
+            }
+
+            String sanitizedName = submittedFileName.replace('\\', '/');
+            String fileName = sanitizedName.substring(sanitizedName.lastIndexOf('/') + 1);
+
+            int lastDot = fileName.lastIndexOf('.');
+            String name = (lastDot > 0) ? fileName.substring(0, lastDot) : fileName;
+            String extension = (lastDot > 0 && lastDot < fileName.length() - 1)
+                    ? fileName.substring(lastDot + 1).toLowerCase()
+                    : "";
+
+            if (!ALLOWED_EXTENSIONS.contains(extension)) {
+                throw new IllegalArgumentException(
+                        "Extension non autorisée pour le fichier " + paramName + ": " + extension);
+            }
+
+            String contentType = part.getContentType();
+            if (contentType != null && !contentType.trim().isEmpty()) {
+                String normalizedType = contentType.toLowerCase();
+                if (!ALLOWED_CONTENT_TYPES.contains(normalizedType)
+                        && !("image/jpg".equals(normalizedType) || "image/pjpeg".equals(normalizedType))) {
+                    throw new IllegalArgumentException(
+                            "Type MIME non autorisé pour le fichier " + paramName + ": " + contentType);
+                }
+            }
+
+            byte[] content = new byte[(int) part.getSize()];
+            try (InputStream inputStream = part.getInputStream()) {
+                int read = 0;
+                int total = 0;
+                while ((read = inputStream.read(content, total, content.length - total)) != -1) {
+                    total += read;
+                    if (total >= content.length) {
+                        break;
+                    }
+                }
+            }
+
+            return new MappFile(name, extension, content);
+
+        } catch (IllegalArgumentException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Erreur de traitement du fichier " + paramName + ".", e);
+        }
     }
 
     private Object valeurParDefaut(Class<?> type) {
