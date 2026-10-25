@@ -1,9 +1,10 @@
 package main.java;
 
 import jakarta.servlet.ServletException;
-import jakarta.servlet.http.HttpServlet;
+;import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.lang.reflect.Method;
@@ -11,6 +12,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import ControllerPerso.Authorize;
 import ControllerPerso.ControllerScanner;
 import ControllerPerso.Mapping;
 import ControllerPerso.MappingInfo;
@@ -68,10 +70,7 @@ public class FrontServlet extends HttpServlet {
 
     // traiter() : lire l'URL demandée et décider quoi faire
     private void traiter(HttpServletRequest request, HttpServletResponse response,
-                         String httpMethod) throws ServletException, IOException { 
-
-        response.setContentType("text/html; charset=UTF-8");
-        PrintWriter out = response.getWriter();
+                         String httpMethod) throws ServletException, IOException {
 
         String pathInfo = request.getPathInfo();
         String urlDemandee = (pathInfo != null && pathInfo.length() > 1)
@@ -82,27 +81,38 @@ public class FrontServlet extends HttpServlet {
         String baseUrl     = requestUrl.substring(0,
                 requestUrl.indexOf(contextPath) + contextPath.length()) + "/";
 
-        out.println("<html><body style='font-family: Arial; margin: 30px;'>");
-
         UrlMethode cle = new UrlMethode(urlDemandee, httpMethod);
 
         if (urlDemandee.isEmpty()) {
-            // CAS 1 : URL vide → page d'accueil avec le tableau complet
+            response.setContentType("text/html; charset=UTF-8");
+            PrintWriter out = response.getWriter();
+            out.println("<html><body style='font-family: Arial; margin: 30px;'>");
             afficherTableau(out, baseUrl, null);
-
-        } else if (mappingUrls.containsKey(cle)) {
-
-            MappingInfo info = mappingUrls.get(cle);
-            executerMethode(info, request, response);
-
-        } else {
-           
-            afficherErreur(out, baseUrl, urlDemandee, httpMethod);
+            out.println("<br><hr>");
+            out.println("<p><a href='" + baseUrl + "'>Retour accueil</a></p>");
+            out.println("</body></html>");
+            return;
         }
 
-        out.println("<br><hr>");
-        out.println("<p><a href='" + baseUrl + "'>Retour accueil</a></p>");
-        out.println("</body></html>");
+        if (!mappingUrls.containsKey(cle)) {
+            response.setContentType("text/html; charset=UTF-8");
+            PrintWriter out = response.getWriter();
+            out.println("<html><body style='font-family: Arial; margin: 30px;'>");
+            afficherErreur(out, baseUrl, urlDemandee, httpMethod);
+            out.println("<br><hr>");
+            out.println("<p><a href='" + baseUrl + "'>Retour accueil</a></p>");
+            out.println("</body></html>");
+            return;
+        }
+
+        MappingInfo info = mappingUrls.get(cle);
+
+        if (requiresAuthentication(info, request) && !isAuthenticated(request)) {
+            response.sendRedirect(buildLoginUrl(request));
+            return;
+        }
+
+        executerMethode(info, request, response);
     }
 
     private void afficherTableau(PrintWriter out, String baseUrl, String urlActive) {
@@ -161,6 +171,51 @@ public class FrontServlet extends HttpServlet {
         } catch (Exception e) {
             throw new ServletException("Erreur exécution méthode", e);
         }
+    }
+
+    private boolean requiresAuthentication(MappingInfo info, HttpServletRequest request) {
+        if (isLoginRequest(request)) {
+            return false;
+        }
+
+        try {
+            ClassLoader cl = Thread.currentThread().getContextClassLoader();
+            Class<?> clazz = cl.loadClass(info.getClassName());
+            return clazz.isAnnotationPresent(Authorize.class)
+                    || info.getMethod().isAnnotationPresent(Authorize.class);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private boolean isAuthenticated(HttpServletRequest request) {
+        HttpSession session = request.getSession(false);
+        if (session == null) {
+            return false;
+        }
+        return session.getAttribute("user") != null;
+    }
+
+    private boolean isLoginRequest(HttpServletRequest request) {
+        String pathInfo = request.getPathInfo();
+        if (pathInfo == null || pathInfo.isEmpty()) {
+            return false;
+        }
+
+        String cleanedPath = pathInfo.startsWith("/") ? pathInfo.substring(1) : pathInfo;
+        String firstSegment = cleanedPath.split("/")[0];
+
+        return "login".equalsIgnoreCase(firstSegment)
+                || "connexion".equalsIgnoreCase(firstSegment)
+                || "auth".equalsIgnoreCase(firstSegment);
+    }
+
+    private String buildLoginUrl(HttpServletRequest request) {
+        String contextPath = request.getContextPath();
+        if (contextPath == null || contextPath.isEmpty()) {
+            return "/login";
+        }
+        return contextPath + "/login";
     }
 
     //  URL inconnue -> message + liste des URLs valides    
