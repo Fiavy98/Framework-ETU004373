@@ -104,12 +104,3 @@ SPRINT 5: Comment envoyer les donner vers une vue
     
     Il faut conctaner le /eemp/list en /emp/list.jsp
 mp/list en /emp/list.jsp
-
-# Spint 10
-Lorsqu’un controleur est annote avec un role specifique, seuls les utilisateurs possedant ce role peuvent y acceder. Autrement dit, une simple authentification ne suffit pas : l’utilisateur doit egalement posseder le role requis
-
-Classe User
-- Liste des rôles (String).
-
-Fonctionnement :
-L’utilisateur connecté → la variable est stockée dans la session (web.xml) → si elle existe, elle est comparée à l’annotation du contrôleur → exécuter la méthode.
