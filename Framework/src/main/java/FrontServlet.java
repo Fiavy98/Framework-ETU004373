@@ -19,6 +19,9 @@ import ControllerPerso.MappingInfo;
 import ControllerPerso.ModelView;
 import ControllerPerso.UrlMethode;
 
+import ControllerPerso.RoleRequired;
+import ControllerPerso.User;
+
 public class FrontServlet extends HttpServlet {
 
     private final Map<UrlMethode, MappingInfo> mappingUrls = new HashMap<>();
@@ -105,6 +108,20 @@ public class FrontServlet extends HttpServlet {
             return;
         }
 
+        // Verifier role
+        if (!hasRequiredRole(info, request)) {
+            HttpSession session = request.getSession(false);
+
+            if (session == null || session.getAttribute("user") == null) {
+                response.sendRedirect(buildLoginUrl(request));
+            } else {
+                response.sendError(HttpServletResponse.SC_FORBIDDEN,
+                        "Accès refusé : rôle insuffisant.");
+            }
+        
+            return;
+        }
+
         executerMethode(info, request, response);
     }
 
@@ -137,7 +154,34 @@ public class FrontServlet extends HttpServlet {
             ClassLoader cl = Thread.currentThread().getContextClassLoader();
             Class<?> clazz = cl.loadClass(info.getClassName());
             Object instance = clazz.getDeclaredConstructor().newInstance();
-            Object result = info.getMethod().invoke(instance);
+            // Object result = info.getMethod().invoke(instance);
+
+
+            Method methode = info.getMethod();
+            Object result;
+
+            if (methode.getParameterCount() == 0) {
+                result = methode.invoke(instance);
+            } else {
+                Class<?>[] types = methode.getParameterTypes();
+                Object[] arguments = new Object[types.length];
+            
+                for (int i = 0; i < types.length; i++) {
+                    if (types[i] == HttpServletRequest.class) {
+                        arguments[i] = request;
+                    } else if (types[i] == HttpServletResponse.class) {
+                        arguments[i] = response;
+                    } else {
+                        throw new IllegalArgumentException(
+                            "Paramètre non supporté : " + types[i].getName()
+                        );
+                    }
+                }
+            
+                result = methode.invoke(instance, arguments);
+            }
+
+
 
             if (result instanceof ModelView) {
                 ModelView mv = (ModelView) result;
@@ -147,6 +191,12 @@ public class FrontServlet extends HttpServlet {
 
                 String jspPath = "/WEB-INF/views/" + mv.getViewName() + ".jsp";
                 request.getRequestDispatcher(jspPath).forward(request, response);
+            } else if (result instanceof String) {
+                response.setContentType("text/html; charset=UTF-8");
+                PrintWriter out = response.getWriter();
+                out.println("<html><body style='font-family: Arial; margin: 30px;'>");
+                out.println("<p>" + result + "</p>");
+                out.println("</body></html>");
             } else {
                 PrintWriter out = response.getWriter();
                 out.println("<p>Méthode <strong>"
@@ -194,10 +244,11 @@ public class FrontServlet extends HttpServlet {
 
     private String buildLoginUrl(HttpServletRequest request) {
         String contextPath = request.getContextPath();
+        String loginPath = "/app/login";
         if (contextPath == null || contextPath.isEmpty()) {
-            return "/login";
+            return loginPath;
         }
-        return contextPath + "/login";
+        return contextPath + loginPath;
     }
 
     private void afficherErreur(PrintWriter out, String baseUrl,
@@ -215,5 +266,58 @@ public class FrontServlet extends HttpServlet {
                     + "<a href='" + urlComplete + "'>" + urlComplete + "</a></li>");
         }
         out.println("</ul>");
+    }
+
+
+
+    private boolean hasRequiredRole(MappingInfo info, HttpServletRequest request) {
+        Class<?> clazz;
+
+        try {
+            clazz = Thread.currentThread()
+                    .getContextClassLoader()
+                    .loadClass(info.getClassName());
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+
+        RoleRequired methodAnnotation = info.getMethod().getAnnotation(RoleRequired.class);
+        RoleRequired classAnnotation = clazz.getAnnotation(RoleRequired.class);
+
+        if (methodAnnotation == null && classAnnotation == null) {
+            return true;
+        }
+
+        HttpSession session = request.getSession(false);
+        if (session == null) {
+            return false;
+        }
+
+        Object objetUser = session.getAttribute("user");
+        if (!(objetUser instanceof User)) {
+            return false;
+        }
+
+        User user = (User) objetUser;
+        java.util.Set<String> requiredRoles = new java.util.HashSet<>();
+
+        if (classAnnotation != null) {
+            for (String role : classAnnotation.value()) {
+                requiredRoles.add(role);
+            }
+        }
+        if (methodAnnotation != null) {
+            for (String role : methodAnnotation.value()) {
+                requiredRoles.add(role);
+            }
+        }
+
+        for (String role : requiredRoles) {
+            if (!user.hasRole(role)) {
+                return false;
+            }
+        }
+
+        return !requiredRoles.isEmpty();
     }
 }
