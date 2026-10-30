@@ -15,9 +15,10 @@ mkdir -p "$BUILD_DIR/classes"
 # ── Compilation ───────────────────────────────────
 find "$SRC_DIR" -name "*.java" > sources.txt
 javac -cp "$SERVLET_API_JAR" -d "$BUILD_DIR/classes" @sources.txt
-rm sources.txt
+STATUS=$?
+rm -f sources.txt
 
-if [ $? -ne 0 ]; then
+if [ $STATUS -ne 0 ]; then
     echo "❌ Erreur de compilation. Abandon."
     exit 1
 fi

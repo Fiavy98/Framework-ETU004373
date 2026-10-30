@@ -16,7 +16,7 @@
             - web.xml
     - deploy.sh
 
-- le but est de fournir un .jar pour le Framework qui contient les servlets compilés
+- le but est de fournir un .jar pour le Framework qui contient les servlets compiles
 et on le deploye (le jar) dans le dossier Test qui va devenir un bibliotheque et le dossier Test va le deployer dans le webapp de tomcat.
 
 
@@ -86,7 +86,7 @@ SPRINT 5: Comment envoyer les donner vers une vue
     @GetMapping("/secretariat/profil/{id}")
     public String profil(@PathVariable Integer id, Model model) {
         model.addAttribute("eleve", eleveService.getProfil(id));
-        model.addAttribute("pageTitle", "Profil de l'Élève");
+        model.addAttribute("pageTitle", "Profil de l'elève");
         return "Secretaire/profil_eleve";
     }
     
@@ -103,4 +103,8 @@ SPRINT 5: Comment envoyer les donner vers une vue
     └─────────────────────────────────────────────────────┘
     
     Il faut conctaner le /eemp/list en /emp/list.jsp
-mp/list en /emp/list.jsp
+mp/list en /emp/list.*
+*jsp
+
+## Sprint 10
+user connecter -> Session (User/Role) -> aceder a un methode controlleur (role Ok -> ok ) sinon -> acces refuser

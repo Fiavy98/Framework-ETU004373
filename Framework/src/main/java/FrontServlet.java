@@ -4,6 +4,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.lang.reflect.Method;
@@ -11,36 +12,33 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import ControllerPerso.Authorize;
 import ControllerPerso.ControllerScanner;
 import ControllerPerso.Mapping;
 import ControllerPerso.MappingInfo;
 import ControllerPerso.ModelView;
 import ControllerPerso.UrlMethode;
 
+import ControllerPerso.RoleRequired;
+import ControllerPerso.User;
+
 public class FrontServlet extends HttpServlet {
 
-    private Map<UrlMethode, MappingInfo> mappingUrls = new HashMap<>();
+    private final Map<UrlMethode, MappingInfo> mappingUrls = new HashMap<>();
 
     @Override
     public void init() throws ServletException {
         try {
-
             String webInfPath = getServletContext().getRealPath("/WEB-INF");
-
             List<String> controllerNames = ControllerScanner.scan(webInfPath);
-
             ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
 
             for (String className : controllerNames) {
                 Class<?> clazz = classLoader.loadClass(className);
-
                 for (Method method : clazz.getDeclaredMethods()) {
-
                     if (method.isAnnotationPresent(Mapping.class)) {
                         Mapping ann = method.getAnnotation(Mapping.class);
-
                         UrlMethode cle = new UrlMethode(ann.value(), ann.method());
-
                         mappingUrls.put(cle, new MappingInfo(className, method));
 
                         System.out.println("✅ Mapping enregistré : ["
@@ -66,43 +64,65 @@ public class FrontServlet extends HttpServlet {
         traiter(request, response, "POST");
     }
 
-    // traiter() : lire l'URL demandée et décider quoi faire
     private void traiter(HttpServletRequest request, HttpServletResponse response,
-                         String httpMethod) throws ServletException, IOException { 
-
-        response.setContentType("text/html; charset=UTF-8");
-        PrintWriter out = response.getWriter();
+                         String httpMethod) throws ServletException, IOException {
 
         String pathInfo = request.getPathInfo();
         String urlDemandee = (pathInfo != null && pathInfo.length() > 1)
-                ? pathInfo.substring(1) : "";
+                ? pathInfo.substring(1)
+                : "";
 
-        String requestUrl  = request.getRequestURL().toString();
+        String requestUrl = request.getRequestURL().toString();
         String contextPath = request.getContextPath();
-        String baseUrl     = requestUrl.substring(0,
+        String baseUrl = requestUrl.substring(0,
                 requestUrl.indexOf(contextPath) + contextPath.length()) + "/";
-
-        out.println("<html><body style='font-family: Arial; margin: 30px;'>");
 
         UrlMethode cle = new UrlMethode(urlDemandee, httpMethod);
 
         if (urlDemandee.isEmpty()) {
-            // CAS 1 : URL vide → page d'accueil avec le tableau complet
+            response.setContentType("text/html; charset=UTF-8");
+            PrintWriter out = response.getWriter();
+            out.println("<html><body style='font-family: Arial; margin: 30px;'>");
             afficherTableau(out, baseUrl, null);
-
-        } else if (mappingUrls.containsKey(cle)) {
-
-            MappingInfo info = mappingUrls.get(cle);
-            executerMethode(info, request, response);
-
-        } else {
-           
-            afficherErreur(out, baseUrl, urlDemandee, httpMethod);
+            out.println("<br><hr>");
+            out.println("<p><a href='" + baseUrl + "'>Retour accueil</a></p>");
+            out.println("</body></html>");
+            return;
         }
 
-        out.println("<br><hr>");
-        out.println("<p><a href='" + baseUrl + "'>Retour accueil</a></p>");
-        out.println("</body></html>");
+        if (!mappingUrls.containsKey(cle)) {
+            response.setContentType("text/html; charset=UTF-8");
+            PrintWriter out = response.getWriter();
+            out.println("<html><body style='font-family: Arial; margin: 30px;'>");
+            afficherErreur(out, baseUrl, urlDemandee, httpMethod);
+            out.println("<br><hr>");
+            out.println("<p><a href='" + baseUrl + "'>Retour accueil</a></p>");
+            out.println("</body></html>");
+            return;
+        }
+
+        MappingInfo info = mappingUrls.get(cle);
+
+        if (requiresAuthentication(info, request) && !isAuthenticated(request)) {
+            response.sendRedirect(buildLoginUrl(request));
+            return;
+        }
+
+        // Verifier role
+        if (!hasRequiredRole(info, request)) {
+            HttpSession session = request.getSession(false);
+
+            if (session == null || session.getAttribute("user") == null) {
+                response.sendRedirect(buildLoginUrl(request));
+            } else {
+                response.sendError(HttpServletResponse.SC_FORBIDDEN,
+                        "Accès refusé : rôle insuffisant.");
+            }
+        
+            return;
+        }
+
+        executerMethode(info, request, response);
     }
 
     private void afficherTableau(PrintWriter out, String baseUrl, String urlActive) {
@@ -114,11 +134,10 @@ public class FrontServlet extends HttpServlet {
 
         for (Map.Entry<UrlMethode, MappingInfo> entry : mappingUrls.entrySet()) {
             String urlComplete = baseUrl + entry.getKey().getUrl();
-
             String style = entry.getKey().getUrl().equals(urlActive)
                     ? "style='background:#e8f5e9; font-weight:bold;'" : "";
 
-            out.println("<tr " + style + ">");
+            out.println("<tr " + style + ">" );
             out.println("  <td><a href='" + urlComplete + "'>" + urlComplete + "</a></td>");
             out.println("  <td>" + entry.getKey().getHttpMethod() + "</td>");
             out.println("  <td>" + entry.getValue().getClassName() + "</td>");
@@ -133,37 +152,105 @@ public class FrontServlet extends HttpServlet {
                                   throws ServletException, IOException {
         try {
             ClassLoader cl = Thread.currentThread().getContextClassLoader();
-
             Class<?> clazz = cl.loadClass(info.getClassName());
-
             Object instance = clazz.getDeclaredConstructor().newInstance();
+            // Object result = info.getMethod().invoke(instance);
 
-            Object result = info.getMethod().invoke(instance);
- 
+
+            Method methode = info.getMethod();
+            Object result;
+
+            if (methode.getParameterCount() == 0) {
+                result = methode.invoke(instance);
+            } else {
+                Class<?>[] types = methode.getParameterTypes();
+                Object[] arguments = new Object[types.length];
+            
+                for (int i = 0; i < types.length; i++) {
+                    if (types[i] == HttpServletRequest.class) {
+                        arguments[i] = request;
+                    } else if (types[i] == HttpServletResponse.class) {
+                        arguments[i] = response;
+                    } else {
+                        throw new IllegalArgumentException(
+                            "Paramètre non supporté : " + types[i].getName()
+                        );
+                    }
+                }
+            
+                result = methode.invoke(instance, arguments);
+            }
+
+
+
             if (result instanceof ModelView) {
                 ModelView mv = (ModelView) result;
-
                 for (Map.Entry<String, Object> entry : mv.getData().entrySet()) {
                     request.setAttribute(entry.getKey(), entry.getValue());
                 }
 
                 String jspPath = "/WEB-INF/views/" + mv.getViewName() + ".jsp";
-
                 request.getRequestDispatcher(jspPath).forward(request, response);
-
+            } else if (result instanceof String) {
+                response.setContentType("text/html; charset=UTF-8");
+                PrintWriter out = response.getWriter();
+                out.println("<html><body style='font-family: Arial; margin: 30px;'>");
+                out.println("<p>" + result + "</p>");
+                out.println("</body></html>");
             } else {
                 PrintWriter out = response.getWriter();
                 out.println("<p>Méthode <strong>"
                         + info.getMethod().getName() + "()</strong> exécutée.</p>");
                 out.println("<p>Voir la console Tomcat pour le résultat.</p>");
             }
-
         } catch (Exception e) {
             throw new ServletException("Erreur exécution méthode", e);
         }
     }
 
-    //  URL inconnue -> message + liste des URLs valides    
+    private boolean requiresAuthentication(MappingInfo info, HttpServletRequest request) {
+        if (isLoginRequest(request)) {
+            return false;
+        }
+
+        try {
+            ClassLoader cl = Thread.currentThread().getContextClassLoader();
+            Class<?> clazz = cl.loadClass(info.getClassName());
+            return clazz.isAnnotationPresent(Authorize.class)
+                    || info.getMethod().isAnnotationPresent(Authorize.class);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private boolean isAuthenticated(HttpServletRequest request) {
+        HttpSession session = request.getSession(false);
+        return session != null && session.getAttribute("user") != null;
+    }
+
+    private boolean isLoginRequest(HttpServletRequest request) {
+        String pathInfo = request.getPathInfo();
+        if (pathInfo == null || pathInfo.isEmpty()) {
+            return false;
+        }
+
+        String cleanedPath = pathInfo.startsWith("/") ? pathInfo.substring(1) : pathInfo;
+        String firstSegment = cleanedPath.split("/")[0];
+
+        return "login".equalsIgnoreCase(firstSegment)
+                || "connexion".equalsIgnoreCase(firstSegment)
+                || "auth".equalsIgnoreCase(firstSegment);
+    }
+
+    private String buildLoginUrl(HttpServletRequest request) {
+        String contextPath = request.getContextPath();
+        String loginPath = "/app/login";
+        if (contextPath == null || contextPath.isEmpty()) {
+            return loginPath;
+        }
+        return contextPath + loginPath;
+    }
+
     private void afficherErreur(PrintWriter out, String baseUrl,
                                  String urlDemandee, String httpMethod) {
         out.println("<h2 style='color:#c62828;'>URL Inconnue</h2>");
@@ -173,12 +260,64 @@ public class FrontServlet extends HttpServlet {
         out.println("</div>");
         out.println("<p>URLs valides :</p><ul>");
 
-        // Lister toutes les URLs enregistrées dans la Map
         for (UrlMethode u : mappingUrls.keySet()) {
             String urlComplete = baseUrl + u.getUrl();
             out.println("<li>[" + u.getHttpMethod() + "] "
                     + "<a href='" + urlComplete + "'>" + urlComplete + "</a></li>");
         }
         out.println("</ul>");
+    }
+
+
+
+    private boolean hasRequiredRole(MappingInfo info, HttpServletRequest request) {
+        Class<?> clazz;
+
+        try {
+            clazz = Thread.currentThread()
+                    .getContextClassLoader()
+                    .loadClass(info.getClassName());
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException(e);
+        }
+
+        RoleRequired methodAnnotation = info.getMethod().getAnnotation(RoleRequired.class);
+        RoleRequired classAnnotation = clazz.getAnnotation(RoleRequired.class);
+
+        if (methodAnnotation == null && classAnnotation == null) {
+            return true;
+        }
+
+        HttpSession session = request.getSession(false);
+        if (session == null) {
+            return false;
+        }
+
+        Object objetUser = session.getAttribute("user");
+        if (!(objetUser instanceof User)) {
+            return false;
+        }
+
+        User user = (User) objetUser;
+        java.util.Set<String> requiredRoles = new java.util.HashSet<>();
+
+        if (classAnnotation != null) {
+            for (String role : classAnnotation.value()) {
+                requiredRoles.add(role);
+            }
+        }
+        if (methodAnnotation != null) {
+            for (String role : methodAnnotation.value()) {
+                requiredRoles.add(role);
+            }
+        }
+
+        for (String role : requiredRoles) {
+            if (!user.hasRole(role)) {
+                return false;
+            }
+        }
+
+        return !requiredRoles.isEmpty();
     }
 }
